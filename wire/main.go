@@ -11,6 +11,7 @@ type OptionsTwo struct {
 }
 
 type Option func(o *Options)
+
 type OptionTwo func(o *OptionsTwo)
 
 func WithString(k, v string) Option {
@@ -27,12 +28,12 @@ func WithStringTwo(k, v string) OptionTwo {
 	}
 }
 
-func ProvideOptions() []Option {
-	return []Option{
-		WithString("one", "hi"),
-		WithString("two", "hi"),
-		WithString("three", "hi"),
-	}
+func ProvideOptionsOne() Option {
+	return WithString("single", "hi")
+}
+
+func ProvideOptionsMultiple() Option {
+	return WithString("one", "hi")
 }
 
 func ProvideOptionsTwo() []OptionTwo {

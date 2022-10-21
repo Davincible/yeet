@@ -1,0 +1,120 @@
+// Package http provides an HTTP server implementation.
+// It provides an HTTP1, HTTP2, and HTTP3 server, the first two enabled by default.
+//
+// One server contains multiple entrypoints, with one entrypoint being one
+// address to listen on. Each entrypoint with start its own HTTP2 server, and
+// optionally also an HTTP3 server. Each entrypoint can be customised individually,
+// but default options are provided, and can be tweaked.
+//
+// The architecture is based on the Traefik server implementation.
+package http
+
+import (
+	"context"
+
+	"http-poc/http/codec"
+	"http-poc/http/entrypoint"
+	"http-poc/http/router"
+
+	"github.com/pkg/errors"
+
+	"http-poc/logger"
+)
+
+var _ ServerHTTP = (*Server)(nil)
+
+// ServerHTTP implements the HTTP server interface.
+type ServerHTTP interface {
+	Start() error
+	Stop(context.Context) error
+	Type() string
+	String() string
+}
+
+type Server struct {
+	codecs codec.Codecs
+	logger logger.Logger
+
+	// TODO: check if thread safe to use with multiple servers
+	Router router.Router
+	Config Config
+
+	entrypoints map[string]*entrypoint.Entrypoint
+}
+
+func ProvideServerHTTP(router router.Router, codecs codec.Codecs, logger logger.Logger, options ...Option) (*Server, error) {
+	s := Server{
+		codecs:      codecs,
+		logger:      logger,
+		Router:      router,
+		Config:      NewConfig(options...),
+		entrypoints: make(map[string]*entrypoint.Entrypoint, 1),
+	}
+
+	if err := s.createEntrypoints(); err != nil {
+		return nil, err
+	}
+
+	return &s, nil
+}
+
+func (s *Server) createEntrypoints() error {
+	s.logger.Infof("Entrypoints: %+v", s.Config.Entrypoints)
+
+	for _, e := range s.Config.Entrypoints {
+		s.logger.Infof("Entrypoint data: %+v", e)
+		ep, err := entrypoint.NewEntrypoint(s.Router, s.logger, s.Config.EntrypointDefaults, e...)
+		if err != nil {
+			return errors.Wrap(err, "failed to create entrypoint")
+		}
+
+		s.entrypoints[ep.Config.Address] = ep
+	}
+
+	return nil
+}
+
+// Start will start the HTTP servers on all entrypoints.
+func (s *Server) Start() error {
+	for addr, entrypoint := range s.entrypoints {
+		if err := entrypoint.Start(); err != nil {
+			return errors.Wrapf(err, "failed to start entrypoint (%s)", addr)
+		}
+	}
+
+	return nil
+}
+
+// Stop will stop the HTTP servers on all entrypoints and close the listners.
+func (s *Server) Stop(ctx context.Context) error {
+	errChan := make(chan error)
+
+	// Stop all servers in parallel to make sure they get equal amount of time
+	// to shutdown gracefully.
+	for _, e := range s.entrypoints {
+		go func(entrypoint *entrypoint.Entrypoint) {
+			errChan <- entrypoint.Stop(ctx)
+		}(e)
+	}
+
+	var err error
+
+	for i := 0; i < len(s.entrypoints); i++ {
+		if nerr := <-errChan; nerr != nil {
+			err = errors.Wrap(nerr, "failed to stop entrypoint")
+		}
+	}
+
+	close(errChan)
+
+	return err
+}
+
+func (s *Server) Type() string {
+	// TODO: abstract this away in a const in the core.
+	return "Server"
+}
+
+func (s *Server) String() string {
+	return "http"
+}

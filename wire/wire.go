@@ -9,8 +9,9 @@ import (
 
 func NewWireTest() (*ReturnType, error) {
 	wire.Build(
-		ProvideOptions,
 		ProvideOption,
+		ProvideOptionsOne,
+		ProvideOptionsMultiple,
 		ProvideOptionsTwo,
 		ProvideOptionTwo,
 		ProvideCollector,

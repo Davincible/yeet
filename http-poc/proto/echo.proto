@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package echodicker;
 
-option go_package = "./proto;echopkg";
+option go_package = "./proto;proto";
 
 service Streams {
   rpc Call(CallRequest) returns (CallResponse) {}

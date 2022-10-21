@@ -4,7 +4,7 @@
 // - protoc             v3.21.7
 // source: proto/echo.proto
 
-package echopkg
+package proto
 
 import (
 	context "context"
