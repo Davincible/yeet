@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"http-poc/http/router"
+	"http-poc/http/router/router"
 
 	"github.com/pkg/errors"
 	"golang.org/x/net/http2"
@@ -46,7 +46,11 @@ func (e *Entrypoint) newHTTPServer(router router.Router) (*httpServer, error) {
 		server.TLSConfig = e.Config.TLS
 	}
 
-	if !strings.Contains(os.Getenv("GODEBUG"), "http2server=0") {
+	if e.Config.HTTP2 && !strings.Contains(os.Getenv("GODEBUG"), "http2server=0") {
+		if e.Config.TLS != nil {
+			e.Config.TLS.NextProtos = append([]string{"h2"}, e.Config.TLS.NextProtos...)
+		}
+
 		h2 := http2.Server{
 			MaxConcurrentStreams: uint32(e.Config.MaxConcurrentStreams),
 			NewWriteScheduler:    func() http2.WriteScheduler { return http2.NewPriorityWriteScheduler(nil) },

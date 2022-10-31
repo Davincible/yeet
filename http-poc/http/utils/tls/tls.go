@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -13,8 +14,6 @@ import (
 	"math/big"
 	"net"
 	"time"
-
-	mtls "go-micro.dev/v4/util/tls"
 )
 
 // LoadTLSConfig loads a TLS config from certificate files.
@@ -50,7 +49,8 @@ func GenTlSConfig(addr ...string) (*tls.Config, error) {
 	}
 
 	// Generate a certificate
-	cert, err := mtls.Certificate(hosts...)
+	cert, err := Certificate(hosts...)
+	// cert, err := CertificateQuic()
 	if err != nil {
 		return nil, err
 	}
@@ -58,9 +58,29 @@ func GenTlSConfig(addr ...string) (*tls.Config, error) {
 	config := tls.Config{
 		Certificates: []tls.Certificate{cert},
 		MinVersion:   tls.VersionTLS13,
+		NextProtos:   []string{"h1", "http/1.1"},
 	}
 
 	return &config, nil
+}
+
+func CertificateQuic() (tls.Certificate, error) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	template := x509.Certificate{SerialNumber: big.NewInt(1)}
+
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+
+	return tls.X509KeyPair(certPEM, keyPEM)
 }
 
 // Certificate generates a self signed certificate.

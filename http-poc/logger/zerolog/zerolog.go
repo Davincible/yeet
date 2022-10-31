@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
-	"time"
 
 	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
@@ -57,9 +56,10 @@ func (l *ZeroLogger) Init(opts ...logger.Option) error {
 	if l.opts.CallerSkipCount > 0 {
 		skip = l.opts.CallerSkipCount
 	}
+
 	// RESET
-	zerolog.TimeFieldFormat = time.RFC3339
-	zerolog.ErrorStackMarshaler = nil
+	// zerolog.TimeFieldFormat = time.RFC3339
+	// zerolog.ErrorStackMarshaler = nil
 	zerolog.CallerSkipFrameCount = skip
 
 	switch l.opts.Mode {

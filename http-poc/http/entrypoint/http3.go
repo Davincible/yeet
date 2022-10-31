@@ -36,7 +36,8 @@ func (e *Entrypoint) newHTTP3Server() (*http3server, error) {
 
 	h3 := http3server{
 		getter: func(info *tls.ClientHelloInfo) (*tls.Config, error) {
-			return nil, ErrNoTLSConfig
+			return e.Config.TLS, nil
+			// return nil, ErrNoTLSConfig
 		},
 	}
 

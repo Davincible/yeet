@@ -1,12 +1,11 @@
 package http
 
 import (
-	"fmt"
-
 	"http-poc/http/entrypoint"
 )
 
 const (
+	// DefaultAddress to use when no custom entrypoints are provided.
 	DefaultAddress = "0.0.0.0:42069"
 )
 
@@ -22,12 +21,18 @@ type Entrypoint []entrypoint.Option
 // Config is the server config. It contains the list of addresses on which
 // entrypoints will be created, and the default config used for each entrypoint.
 type Config struct {
+	// EntrypointDefaults are the defaults used when creating new entrypoints.
 	EntrypointDefaults entrypoint.Config
-	Entrypoints        []Entrypoint
+
+	// Entrypoints is the list of entrypoints that will be created.
+	Entrypoints []Entrypoint
+
+	// DisableGzip disabled gzip response compression.
+	DisableGzip bool
 }
 
 // NewConfig creates a new server config with default values.
-// To customise the options pas in a list of options.
+// To customize the options pas in a list of options.
 func NewConfig(options ...Option) Config {
 	cfg := Config{
 		EntrypointDefaults: entrypoint.NewEntrypointConfig(),
@@ -37,12 +42,9 @@ func NewConfig(options ...Option) Config {
 	cfg.ApplyOptions(options...)
 
 	if len(cfg.Entrypoints) == 0 {
-		fmt.Println("adding")
 		e := Entrypoint{entrypoint.WithAddress(DefaultAddress)}
 		cfg.Entrypoints = append(cfg.Entrypoints, e)
 	}
-
-	fmt.Println(cfg.Entrypoints, len(cfg.Entrypoints))
 
 	return cfg
 }
@@ -82,7 +84,7 @@ func WithEntrypointDefaults(defaults entrypoint.Config) Option {
 // specify them WithEntrypointOptions, if you want to create custom entrypoints
 // with specific non-default options, use WithEntrypoints.
 //
-// To listen on all interfaces on one specific port use use the ":<port>" notation.
+// To listen on all interfaces on one specific port use the ":<port>" notation.
 // To listen on a specific interface use the "<IP>:<port>" notation.
 func WithAddress(addrs ...string) Option {
 	return func(c *Config) {
@@ -110,6 +112,30 @@ func WithEntrypoints(entrypoints ...Entrypoint) Option {
 	}
 }
 
+// WithInsecure starts the servers without TLS certificate, use this if you
+// want to server HTTP traffick without encryption.
 func WithInsecure() Option {
 	return WithEntrypointOptions(entrypoint.WithInsecure())
+}
+
+// WithHTTP3 enabled the HTTP3 sever by default on the creation of new entrypoints.
+func WithHTTP3() Option {
+	return WithEntrypointOptions(entrypoint.WithHTTP3())
+}
+
+// WithDisableGzip disabled gzip response compression.
+func WithDisableGzip() Option {
+	return func(c *Config) {
+		c.DisableGzip = true
+	}
+}
+
+func WithDisableHTTP2() Option {
+	return WithEntrypointOptions(entrypoint.DisableHTTP2())
+}
+
+// WithAllowH2C enables insecure HTTP2 support; HTTP/2 without TLS.
+// This is thus also only possible if you set WithInsecure.
+func WithAllowH2C() Option {
+	return WithEntrypointOptions(entrypoint.AllowH2C())
 }

@@ -2,11 +2,11 @@
 package header
 
 import (
-	"fmt"
 	"mime"
 	"strings"
 
 	"http-poc/http/codec"
+	"http-poc/http/headers"
 )
 
 // GetContentType parses the content type from the header value.
@@ -25,11 +25,16 @@ func GetContentType(header string) (string, error) {
 func GetAcceptType(c codec.Codecs, acceptHeader string, contentType string) string {
 	accept := contentType
 
+	// If request used Form content type, return JSON instead of form.
+	if accept == headers.FormContentType {
+		accept = headers.JSONContentType
+	}
+
+	// If explicitly asked for a specific content type, use that
 	acceptSlice := strings.Split(acceptHeader, ",")
 	for _, acceptType := range acceptSlice {
 		ct, _, err := mime.ParseMediaType(acceptType)
 		if err != nil {
-			fmt.Println(err)
 			continue
 		}
 

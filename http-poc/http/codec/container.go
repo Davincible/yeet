@@ -63,6 +63,8 @@ func ProvideCodecJSON() Codec {
 func ProvideCodecProto() []Codec {
 	return []Codec{
 		&Proto{contentType: "application/octet-stream"},
+		&Proto{contentType: "application/proto"},
+		&Proto{contentType: "application/x-proto"},
 		&Proto{contentType: "application/protobuf"},
 		&Proto{contentType: "application/x-protobuf"},
 	}

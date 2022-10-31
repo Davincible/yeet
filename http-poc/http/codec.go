@@ -2,60 +2,98 @@ package http
 
 import (
 	"bytes"
+	"compress/gzip"
 	"io"
 	"net/http"
+	"strings"
+
+	"github.com/pkg/errors"
 
 	"http-poc/http/headers"
 	"http-poc/http/utils/header"
 )
 
-func (s *Server) decodeBody(w http.ResponseWriter, r *http.Request, in any) (string, error) {
-	ctHeader := r.Header.Get(headers.ContentType)
-	contentType, err := header.GetContentType(ctHeader)
-	if err != nil {
-		return "", err
+// TODO: decode body now also does content type setting, maybe sepearte that out
+
+// Decode body takes the request body and decodes it into the proto type.
+func (s *Server) decodeBody(w http.ResponseWriter, request *http.Request, in any) (string, error) {
+	var (
+		body        io.Reader
+		contentType string
+		err         error
+	)
+
+	ctHeader := request.Header.Get(headers.ContentType)
+
+	// Parse params from query on GET request, or if no content type, on other read body
+	switch {
+	case request.Method == http.MethodGet || len(ctHeader) == 0:
+		query := request.URL.Query().Encode()
+		body = bytes.NewBufferString(query)
+
+		contentType = headers.FormContentType
+	default:
+		contentType, err = header.GetContentType(ctHeader)
+		if err != nil {
+			s.logger.Debug("Request failed while parsing content type: %v", err)
+			return "", err
+		}
+
+		// Gzip decode if needed
+		eHeader := request.Header.Get(headers.ConentEncoding)
+		if strings.Contains(eHeader, headers.GzipContentEncoding) {
+			body, err = gzip.NewReader(request.Body)
+			if err != nil {
+				return "", err
+			}
+		} else {
+			body = request.Body
+		}
 	}
 
-	aHeader := r.Header.Get(headers.AcceptEncoding)
+	// Set response content type
+	aHeader := request.Header.Get(headers.Accept)
 	accept := header.GetAcceptType(s.codecs, aHeader, contentType)
 	w.Header().Set(headers.ContentType, accept)
 
 	codec, ok := s.codecs[contentType]
 	if !ok {
+		s.logger.Debug("Request failed, codec not found for contet type: %v", contentType)
 		return "", ErrContentTypeNotSupported
 	}
 
-	var b io.Reader
-
-	switch r.Method {
-	case http.MethodGet:
-		query := r.URL.Query().Encode()
-		b = bytes.NewBufferString(query)
-
-		contentType = headers.FormContentType
-	default:
-		b = r.Body
-	}
-
-	if err := codec.NewDecoder(b).Decode(in); err != nil {
-		return "", err
+	if err := codec.NewDecoder(body).Decode(in); err != nil {
+		s.logger.Debug("Request failed, failed to decode body: %v", err)
+		return "", errors.Wrapf(err, "failed to decode content type '%s'", contentType)
 	}
 
 	return accept, nil
 }
 
-func (s *Server) encodeBody(w http.ResponseWriter, v any) error {
+// encodeBody takes the return proto type and encodes it into the response.
+func (s *Server) encodeBody(w http.ResponseWriter, r *http.Request, v any) error {
 	contentType := w.Header().Get(headers.ContentType)
-	if len(contentType) > 0 {
+	if len(contentType) == 0 {
 		contentType = headers.JSONContentType
 	}
 
 	codec, ok := s.codecs[contentType]
 	if !ok {
+		s.logger.Debug("Request failed, codec for content type not available: %v", contentType)
 		return ErrContentTypeNotSupported
 	}
 
-	if err := codec.NewEncoder(w).Encode(v); err != nil {
+	nw := w.(io.Writer)
+
+	eHeader := r.Header.Get(headers.AcceptEncoding)
+	if !s.Config.DisableGzip && strings.Contains(eHeader, headers.GzipContentEncoding) {
+		w.Header().Set(headers.ConentEncoding, headers.GzipContentEncoding)
+		nw = gzip.NewWriter(w)
+		defer nw.(io.Closer).Close()
+	}
+
+	if err := codec.NewEncoder(nw).Encode(v); err != nil {
+		s.logger.Debug("Request failed, failed to encode response: %v", err)
 		return err
 	}
 

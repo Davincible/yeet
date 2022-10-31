@@ -12,6 +12,8 @@ const (
 	DefaultReadTimeout          = 5 * time.Second
 	DefaultWriteTimeout         = 5 * time.Second
 	DefaultIdleimeout           = 5 * time.Second
+	DefaultHTTP2                = true
+	DefaultHTTP3                = false
 )
 
 // Option is a functional option to provide custom values to the config.
@@ -30,9 +32,11 @@ type Config struct {
 	MaxConcurrentStreams int
 	// TLS config, if none is provided self-signed certificates will be generated.
 	TLS *tls.Config
-	// AllowH2C allows h2c connections; HTTP2 without TLS.
+	// AllowH2C allows h2c connections; HTTP2 without TLS. TODO: implement
 	AllowH2C bool
-	// HTTP3 dicates whether to also accept HTTP3.
+	// HTTP2 dicates whether to also allow HTTP/2 connectionsl Defaults to true.
+	HTTP2 bool
+	// HTTP3 dicates whether to also start an HTTP/3.0 server. Defaults to false.
 	HTTP3 bool
 
 	ReadTimeout  time.Duration
@@ -46,7 +50,8 @@ func NewEntrypointConfig(options ...Option) Config {
 		Insecure:             false,
 		MaxConcurrentStreams: DefaultMaxConcurrentStreams,
 		AllowH2C:             false,
-		HTTP3:                false,
+		HTTP2:                DefaultHTTP2,
+		HTTP3:                DefaultHTTP3,
 		ReadTimeout:          DefaultReadTimeout,
 		WriteTimeout:         DefaultWriteTimeout,
 		IdleTimeout:          DefaultIdleimeout,
@@ -85,6 +90,24 @@ func WithTLS(tlsConfig *tls.Config) Option {
 func WithInsecure() Option {
 	return func(c *Config) {
 		c.Insecure = true
+	}
+}
+
+func WithHTTP3() Option {
+	return func(c *Config) {
+		c.HTTP3 = true
+	}
+}
+
+func DisableHTTP2() Option {
+	return func(c *Config) {
+		c.HTTP2 = false
+	}
+}
+
+func AllowH2C() Option {
+	return func(c *Config) {
+		c.AllowH2C = true
 	}
 }
 

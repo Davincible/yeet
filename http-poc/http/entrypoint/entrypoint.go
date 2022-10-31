@@ -7,7 +7,7 @@ import (
 	"crypto/tls"
 	"net"
 
-	"http-poc/http/router"
+	"http-poc/http/router/router"
 	mip "http-poc/http/utils/ip"
 	mtcp "http-poc/http/utils/tcp"
 	mtls "http-poc/http/utils/tls"
@@ -77,6 +77,8 @@ func NewEntrypoint(router router.Router, logger logger.Logger, config Config, op
 func (e *Entrypoint) Start() error {
 	var err error
 
+	// e.logger.Debug("Starting all HTTP entrypoints")
+
 	e.listenerTCP, err = mtcp.BuildListenerTCP(e.Config.Address, e.Config.TLS)
 	if err != nil {
 		return err
@@ -116,26 +118,26 @@ func (e *Entrypoint) Stop(ctx context.Context) error {
 	errChan := make(chan error)
 	defer close(errChan)
 
+	// e.logger.Debug("Stopping all HTTP entrypoints")
+
 	c := 1
-	e.logger.Info("stopping")
 	if e.Config.HTTP3 {
-		c += 1
+		c++
 
 		go func() {
 			errChan <- e.http3Server.Stop(ctx)
 
-			if err := e.listenerUDP.Close(); err != nil {
-				e.logger.Warningf("Failed to close UDP listener: %v", err)
-			}
+			//nolint:errcheck
+			_ = e.listenerUDP.Close()
 		}()
 	}
 
 	go func(srv stopper, l net.Listener) {
 		errChan <- srv.Stop(ctx)
 
-		if err := l.Close(); err != nil {
-			e.logger.Warningf("Failed to close TCP listener: %v", err)
-		}
+		// TCP listener probably already closed, just as a double check.
+		//nolint:errcheck
+		_ = l.Close()
 	}(e.httpServer, e.listenerTCP)
 
 	var err error

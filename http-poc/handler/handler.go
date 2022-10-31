@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"fmt"
 
 	"http-poc/proto"
 )
@@ -14,6 +13,5 @@ type EchoHandler struct {
 }
 
 func (c *EchoHandler) Call(ctx context.Context, in *proto.CallRequest) (*proto.CallResponse, error) {
-	fmt.Println("Received message from client:", in.Name)
-	return &proto.CallResponse{Msg: "Message received!"}, nil
+	return &proto.CallResponse{Msg: "Hello " + in.Name}, nil
 }

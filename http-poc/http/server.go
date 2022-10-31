@@ -11,17 +11,18 @@ package http
 
 import (
 	"context"
+	"fmt"
 
 	"http-poc/http/codec"
 	"http-poc/http/entrypoint"
-	"http-poc/http/router"
-
-	"github.com/pkg/errors"
+	"http-poc/http/router/router"
 
 	"http-poc/logger"
 )
 
 var _ ServerHTTP = (*Server)(nil)
+
+// TODO: check if we need to add cache
 
 // ServerHTTP implements the HTTP server interface.
 type ServerHTTP interface {
@@ -59,13 +60,10 @@ func ProvideServerHTTP(router router.Router, codecs codec.Codecs, logger logger.
 }
 
 func (s *Server) createEntrypoints() error {
-	s.logger.Infof("Entrypoints: %+v", s.Config.Entrypoints)
-
 	for _, e := range s.Config.Entrypoints {
-		s.logger.Infof("Entrypoint data: %+v", e)
 		ep, err := entrypoint.NewEntrypoint(s.Router, s.logger, s.Config.EntrypointDefaults, e...)
 		if err != nil {
-			return errors.Wrap(err, "failed to create entrypoint")
+			return fmt.Errorf("server create entrypoint: %w", err)
 		}
 
 		s.entrypoints[ep.Config.Address] = ep
@@ -78,7 +76,7 @@ func (s *Server) createEntrypoints() error {
 func (s *Server) Start() error {
 	for addr, entrypoint := range s.entrypoints {
 		if err := entrypoint.Start(); err != nil {
-			return errors.Wrapf(err, "failed to start entrypoint (%s)", addr)
+			return fmt.Errorf("start entrypoint (%s): %w", addr, err)
 		}
 	}
 
@@ -101,7 +99,7 @@ func (s *Server) Stop(ctx context.Context) error {
 
 	for i := 0; i < len(s.entrypoints); i++ {
 		if nerr := <-errChan; nerr != nil {
-			err = errors.Wrap(nerr, "failed to stop entrypoint")
+			err = fmt.Errorf("stop entrypoint: %w", nerr)
 		}
 	}
 
