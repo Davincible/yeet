@@ -1,7 +1,7 @@
 package pkg_test
 
 var (
-	Message = "Hello !!"
+	Message = "New Hello !!"
 )
 
 func Printer() string {
