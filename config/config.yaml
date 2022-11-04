@@ -1,0 +1,33 @@
+micro:
+  broker:
+    field1: broker One
+    field2: broker Two
+    field3: broker Three
+    field4: True
+  store:
+    field1: store One
+    field2: store Two
+    field3: store Three
+    field4: True
+  logger:
+    field1: store One
+    field2: store Two
+    field3: store Three
+    field4: True
+app1:
+  broker:
+    field1: broker One
+    field2: broker Two
+    field3: broker Three
+    field4: True
+  store:
+    field1: store One
+    field2: store Two
+    field3: store Three
+    field4: True
+  logger:
+    field1: store One
+    field2: store Two
+    field3: store Three
+    field4: True
+
